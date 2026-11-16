@@ -19,6 +19,7 @@
         <span>Keyfall</span>
       </div>
       <div class="header-actions">
+        <button id="mic-chip" class="chip" title="Listen to your piano with the microphone">🎤 Mic off</button>
         <span id="midi-chip" class="chip" title="MIDI keyboard status">MIDI: —</span>
         <button id="btn-settings" class="icon-btn" aria-label="Settings">⚙</button>
       </div>
@@ -120,6 +121,7 @@
     <div class="hud">
       <span id="hud-score">—</span>
       <span id="hud-combo"></span>
+      <span id="mic-ind" class="mic-ind" hidden title="Listening">🎤<i></i></span>
       <span id="hud-mode" class="chip"></span>
     </div>
     <div class="kb-octave" id="kb-octave" title="Computer keyboard octave (Z / X)"></div>
@@ -161,6 +163,24 @@
     <div class="sheet" role="dialog" aria-modal="true">
       <button class="icon-btn sheet-close" data-close aria-label="Close">✕</button>
       <h2>Settings</h2>
+      <div class="mic-box">
+        <label class="setting">
+          <div><b>🎤 Listen with microphone</b><p class="muted small">Play your real piano with nothing plugged in. The phone hears which keys you press.</p></div>
+          <input type="checkbox" id="opt-mic" class="toggle" />
+        </label>
+        <div class="mic-test" id="mic-test" hidden>
+          <div class="meter"><div id="mic-meter"></div></div>
+          <p class="small">Heard: <b id="mic-heard">play a key…</b></p>
+          <label class="small muted">Sensitivity
+            <select id="opt-mic-sens">
+              <option value="low">Low (noisy room)</option>
+              <option value="normal">Normal</option>
+              <option value="high">High (quiet room / soft playing)</option>
+            </select>
+          </label>
+          <p class="muted small">Tips: put the phone on the music stand, close to the strings or speakers. Use headphones (or set the other hand to Off) so the mic doesn't hear the app's own sound. Mic detection is a little slower than MIDI, so Learn mode works best.</p>
+        </div>
+      </div>
       <div class="setting">
         <div><b>MIDI keyboard</b><p class="muted small" id="midi-devices">Not connected</p></div>
         <button class="btn small" id="btn-midi">Connect</button>
@@ -188,6 +208,7 @@
   <script src="js/songs.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/midi-file.js"></script>
+  <script src="js/mic.js"></script>
   <script src="js/game.js"></script>
   <script src="js/app.js"></script>
 </body>

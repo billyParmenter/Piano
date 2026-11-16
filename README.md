@@ -11,7 +11,8 @@ A falling-notes piano trainer that runs in the browser. Connect a real MIDI keyb
 - **Speed control** from 25% to 200%, **section looping** (tap ⟲ to set the start, again to set the end, again to clear), and **seeking** by tapping the progress bar.
 - **Results screen** with a star rating. Your best score is saved for each song and mode.
 - **Import any `.mid` file**. Two-track files are split into right and left hand. Other files are split at middle C.
-- **Three ways to play**:
+- **🎤 Microphone mode: no cable needed.** Tap **🎤 Mic off** at the top to switch it on, and the phone listens to your real piano (acoustic or digital) to work out which keys you play. Chords work too. Settings has a live level meter, a "Heard: …" readout for testing, and a sensitivity setting. It also works on iPhone and iPad.
+- **More ways to play**:
   - A USB or Bluetooth **MIDI keyboard** (Web MIDI: Chrome, Edge, Opera on desktop and Android).
   - **Touch or mouse** on the on-screen keyboard.
   - A **computer keyboard**: `A S D F G H J K L ;` are white keys, `W E T Y U O P` are black keys, `Z`/`X` change the octave, and `Space` pauses.
@@ -30,7 +31,9 @@ python3 -m http.server 8000
 
 Web MIDI needs a secure context (`https://` or `localhost`). To use it on a phone, host the folder somewhere with HTTPS, for example GitHub Pages: *Settings → Pages → Deploy from branch*. Then open the URL in Chrome on Android and use "Add to Home screen" to install it like an app.
 
-> iPhone/iPad: Safari does not support Web MIDI, so a hardware keyboard won't connect there. Touch input still works.
+> iPhone/iPad: Safari does not support Web MIDI, so use **microphone mode** (or the on-screen keys) there.
+>
+> The microphone also needs HTTPS (or `localhost`). For the best results, put the phone on the music stand, play in a fairly quiet room, and use headphones or set the other hand to *Off*, so the mic only hears your piano. Mic detection lags MIDI by roughly 0.1 s; Play mode allows for this automatically.
 
 ## Adding songs
 
@@ -53,5 +56,6 @@ Add an entry to `SONG_DEFS` in `js/songs.js`:
 | `js/songs.js` | Song notation parser and built-in songs |
 | `js/audio.js` | Web Audio piano synth |
 | `js/midi-file.js` | `.mid` file parser |
+| `js/mic.js` | Microphone note detection (onset detection + harmonic pitch analysis) |
 | `js/game.js` | Falling-notes engine: timing, scoring, canvas rendering |
 | `js/app.js` | UI, input (MIDI, touch, keyboard), storage |

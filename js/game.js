@@ -37,6 +37,7 @@ class Game {
     this.finished = false;
     this.resetStats();
     this.t = -LEAD_IN;
+    this.inputLatency = opts.inputLatency || 0; // extra grace for delayed inputs (microphone)
 
     this._frame = this.frame.bind(this);
     this._resize = () => this.resize();
@@ -141,12 +142,26 @@ class Game {
   }
 
   // ---------- input ----------
-  noteOn(midi) {
+  // Notes the player should be pressing right now (used to guide microphone detection).
+  expectedNotes() {
+    const out = new Set();
+    const back = this.mode === 'learn' ? Infinity : (PLAY_WINDOW + 0.25) * this.speed;
+    const ahead = (this.mode === 'learn' ? 0.3 : PLAY_WINDOW + 0.1) * this.speed;
+    for (const n of this.notes) {
+      if (n.start > this.t + ahead) break;
+      if (n.user && n.state === 'pending' && n.start >= this.t - back) out.add(n.midi);
+    }
+    return out;
+  }
+
+  // latency: how many seconds ago the note was actually played (microphone input is delayed).
+  noteOn(midi, latency = 0) {
     let target = null;
     const windowS = PLAY_WINDOW * this.speed;
+    const tNow = this.t - (this.mode === 'play' ? latency * this.speed : 0);
     for (const n of this.notes) {
       if (!n.user || n.state !== 'pending' || n.midi !== midi) continue;
-      const early = n.start - this.t;
+      const early = n.start - tNow;
       const ok = this.mode === 'learn' ? early <= 0.3 * this.speed : Math.abs(early) <= windowS;
       if (ok) { target = n; break; }
       if (n.start > this.t + 1) break;
@@ -154,7 +169,7 @@ class Game {
     const k = this.keys.get(midi);
     if (target) {
       target.state = 'hit';
-      const perfect = this.mode === 'learn' || Math.abs(target.start - this.t) <= PERFECT_WINDOW * this.speed;
+      const perfect = this.mode === 'learn' || Math.abs(target.start - tNow) <= PERFECT_WINDOW * this.speed;
       if (perfect) this.stats.perfect++; else this.stats.good++;
       this.stats.combo++;
       this.stats.maxCombo = Math.max(this.stats.maxCombo, this.stats.combo);
@@ -219,7 +234,7 @@ class Game {
     for (const n of this.notes) {
       if (n.start > this.t) break;
       if (n.user) {
-        if (this.mode === 'play' && n.state === 'pending' && this.t > n.start + windowS) {
+        if (this.mode === 'play' && n.state === 'pending' && this.t > n.start + windowS + this.inputLatency * this.speed) {
           n.state = 'missed';
           this.stats.missed++;
           this.stats.combo = 0;

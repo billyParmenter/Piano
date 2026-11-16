@@ -24,7 +24,7 @@
     },
   };
 
-  const settings = Object.assign({ midiSound: true, showNames: true, volume: 0.8 }, store.get('settings', {}));
+  const settings = Object.assign({ midiSound: true, showNames: true, volume: 0.8, micEnabled: false, micSensitivity: 'normal' }, store.get('settings', {}));
   const saveSettings = () => store.set('settings', settings);
 
   const synth = new PianoSynth();
@@ -216,6 +216,7 @@
 
   $('#btn-start').onclick = () => {
     synth.ensure(); // unlock audio on a user gesture
+    if (settings.micEnabled && !mic.running) setMic(true);
     startGame();
   };
 
@@ -240,6 +241,10 @@
         onFinish: showResults,
       },
     });
+    game.inputLatency = mic.running ? 0.15 : 0;
+    if (mic.running && (setup.hands.lh === 'auto' || setup.hands.rh === 'auto')) {
+      toast('Tip: use headphones so the mic only hears your piano, not the Auto hand.');
+    }
     window.__game = game; // handy for debugging from the console
     $('#hud-mode').textContent = setup.mode === 'learn' ? 'Learn' : 'Play';
     $('#g-speed-val').textContent = Math.round(game.speed * 100) + '%';
@@ -337,11 +342,13 @@
   // ---------- input: shared ----------
   const held = new Map(); // inputId -> midi
 
-  function press(inputId, midi, velocity, source) {
+  function press(inputId, midi, velocity, source, latency = 0) {
     if (held.has(inputId)) release(inputId);
     held.set(inputId, midi);
-    if (source !== 'midi' || settings.midiSound) synth.noteOn(midi, velocity, 'u' + inputId);
-    if (game && !game.paused && !game.finished) game.noteOn(midi);
+    // The mic hears a real piano, so never add our own sound on top of it.
+    const sound = source === 'midi' ? settings.midiSound : source !== 'mic';
+    if (sound) synth.noteOn(midi, velocity, 'u' + inputId);
+    if (game && !game.paused && !game.finished) game.noteOn(midi, latency);
   }
   function release(inputId) {
     const midi = held.get(inputId);
@@ -389,6 +396,65 @@
   $('#midi-chip').onclick = () => openSettings();
   // Try silently on load (works without a prompt in most browsers).
   connectMidi(false);
+
+  // ---------- input: microphone ----------
+  const micTimers = new Map();
+  const mic = new MicListener({
+    onNotes: (notes, latency) => {
+      for (const m of notes) {
+        const id = 'mic' + m;
+        press(id, m, 0.8, 'mic', latency);
+        clearTimeout(micTimers.get(id));
+        micTimers.set(id, setTimeout(() => release(id), 220));
+      }
+      $('#mic-heard').textContent = notes.map((m) => midiToName(m)).join(' + ');
+      (window.__micLog = window.__micLog || []).push(notes.map((m) => midiToName(m)).join('+'));
+      if (window.__micLog.length > 200) window.__micLog.shift();
+    },
+    onLevel: (v) => {
+      $('#mic-meter').style.width = v * 100 + '%';
+      $('#mic-ind').style.setProperty('--lvl', v);
+    },
+    getExpected: () => (game && !game.paused && !game.finished ? game.expectedNotes() : new Set()),
+    getIgnored: () => (game ? new Set(game.autoKeys.keys()) : new Set()),
+  });
+  mic.sensitivity = settings.micSensitivity;
+
+  function updateMicUi() {
+    const on = mic.running;
+    const chip = $('#mic-chip');
+    chip.textContent = on ? '🎤 Listening' : '🎤 Mic off';
+    chip.classList.toggle('on', on);
+    $('#opt-mic').checked = on;
+    $('#mic-test').hidden = !on;
+    $('#mic-ind').hidden = !on;
+    if (game) game.inputLatency = on ? 0.15 : 0;
+  }
+
+  async function setMic(on) {
+    if (on) {
+      try {
+        await mic.start(synth.ensure());
+        settings.micEnabled = true;
+        $('#mic-heard').textContent = 'play a key…';
+      } catch (e) {
+        settings.micEnabled = false;
+        toast(e && e.name === 'NotAllowedError' ? 'Microphone permission was denied. Allow it in your browser settings.' : (e.message || 'Could not start the microphone.'));
+      }
+    } else {
+      mic.stop();
+      settings.micEnabled = false;
+    }
+    saveSettings();
+    updateMicUi();
+  }
+
+  $('#mic-chip').onclick = () => {
+    if (!mic.running) { setMic(true).then(() => { if (mic.running) toast('Listening! Play your piano — check Settings to test it.'); }); }
+    else setMic(false);
+  };
+  $('#opt-mic').onchange = (e) => setMic(e.target.checked);
+  $('#opt-mic-sens').onchange = (e) => { settings.micSensitivity = mic.sensitivity = e.target.value; saveSettings(); };
 
   // ---------- input: computer keyboard ----------
   const KEYMAP = {
@@ -442,6 +508,8 @@
     $('#opt-midi-sound').checked = settings.midiSound;
     $('#opt-names').checked = settings.showNames;
     $('#opt-volume').value = settings.volume;
+    $('#opt-mic-sens').value = settings.micSensitivity;
+    updateMicUi();
     $('#settings').hidden = false;
   }
   $('#btn-settings').onclick = openSettings;
