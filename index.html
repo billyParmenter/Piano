@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0b0d1a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Keyfall</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- ============ LIBRARY ============ -->
+  <section id="library" class="screen active">
+    <header class="lib-header">
+      <div class="brand">
+        <img src="icon.svg" alt="" class="brand-icon" />
+        <span>Keyfall</span>
+      </div>
+      <div class="header-actions">
+        <span id="midi-chip" class="chip" title="MIDI keyboard status">MIDI: —</span>
+        <button id="btn-settings" class="icon-btn" aria-label="Settings">⚙</button>
+      </div>
+    </header>
+
+    <div class="lib-tools">
+      <input id="search" type="search" placeholder="Search songs or composers" autocomplete="off" />
+      <div class="filters" id="filters">
+        <button class="filter active" data-filter="all">All</button>
+        <button class="filter" data-filter="Beginner">Beginner</button>
+        <button class="filter" data-filter="Intermediate">Intermediate</button>
+        <button class="filter" data-filter="Custom">My imports</button>
+      </div>
+    </div>
+
+    <h2 class="section-title" id="recent-title" hidden>Recently played</h2>
+    <div class="song-row" id="recent-list"></div>
+
+    <h2 class="section-title">Songs</h2>
+    <div class="song-grid" id="song-list"></div>
+
+    <label class="import-card">
+      <input type="file" id="import-midi" accept=".mid,.midi,audio/midi" hidden />
+      <span class="import-plus">＋</span>
+      <span><strong>Import a MIDI file</strong><br /><small>Any .mid song becomes playable</small></span>
+    </label>
+  </section>
+
+  <!-- ============ SONG DETAIL ============ -->
+  <div id="detail" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true">
+      <button class="icon-btn sheet-close" data-close aria-label="Close">✕</button>
+      <div class="detail-top">
+        <div class="cover" id="detail-cover"></div>
+        <div>
+          <h2 id="detail-title"></h2>
+          <p id="detail-composer" class="muted"></p>
+          <p id="detail-meta" class="muted small"></p>
+        </div>
+      </div>
+
+      <div class="mode-switch" id="mode-switch">
+        <button data-mode="learn" class="active"><b>Learn</b><small>Waits for you</small></button>
+        <button data-mode="play"><b>Play</b><small>Real-time score</small></button>
+      </div>
+
+      <div class="detail-body">
+        <div class="ring-wrap">
+          <svg viewBox="0 0 120 120" class="ring">
+            <circle cx="60" cy="60" r="52" class="ring-bg" />
+            <circle cx="60" cy="60" r="52" class="ring-fg" id="ring-fg" />
+          </svg>
+          <div class="ring-label"><small>Best</small><span id="ring-value">—</span></div>
+        </div>
+
+        <div class="hands">
+          <div class="hand-row" data-hand="lh">
+            <span class="hand-name"><i class="dot lh"></i>Left hand</span>
+            <div class="seg">
+              <button data-v="you">Me</button><button data-v="auto">Auto</button><button data-v="off">Off</button>
+            </div>
+          </div>
+          <div class="hand-row" data-hand="rh">
+            <span class="hand-name"><i class="dot rh"></i>Right hand</span>
+            <div class="seg">
+              <button data-v="you">Me</button><button data-v="auto">Auto</button><button data-v="off">Off</button>
+            </div>
+          </div>
+          <div class="hand-row">
+            <span class="hand-name">Speed</span>
+            <div class="stepper">
+              <button id="speed-down">−</button><span id="speed-val">100%</span><button id="speed-up">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-actions">
+        <button id="btn-delete-song" class="btn ghost" hidden>Delete</button>
+        <button id="btn-start" class="btn primary">Start</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ GAME ============ -->
+  <section id="game" class="screen">
+    <div class="game-bar">
+      <button class="icon-btn" id="game-back" aria-label="Back">‹</button>
+      <div class="progress" id="progress" title="Tap to seek">
+        <div class="progress-loop" id="progress-loop"></div>
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="stepper small">
+        <button id="g-speed-down">−</button><span id="g-speed-val">100%</span><button id="g-speed-up">+</button>
+      </div>
+      <button class="icon-btn" id="btn-loop" title="Loop: set start, set end, clear">⟲</button>
+      <button class="icon-btn" id="btn-pause" aria-label="Pause">❚❚</button>
+    </div>
+    <div class="hud">
+      <span id="hud-score">—</span>
+      <span id="hud-combo"></span>
+      <span id="hud-mode" class="chip"></span>
+    </div>
+    <div class="kb-octave" id="kb-octave" title="Computer keyboard octave (Z / X)"></div>
+    <canvas id="stage"></canvas>
+    <div class="rotate-hint" id="rotate-hint">Rotate your phone for a bigger keyboard ↻</div>
+  </section>
+
+  <!-- ============ PAUSE ============ -->
+  <div id="pause" class="overlay" hidden>
+    <div class="panel">
+      <h2>Paused</h2>
+      <button class="btn primary" id="p-resume">Resume</button>
+      <button class="btn" id="p-restart">Restart</button>
+      <button class="btn ghost" id="p-quit">Quit to library</button>
+    </div>
+  </div>
+
+  <!-- ============ RESULTS ============ -->
+  <div id="results" class="overlay" hidden>
+    <div class="panel">
+      <p class="muted" id="r-title"></p>
+      <div class="stars" id="r-stars"></div>
+      <div class="big-score" id="r-score"></div>
+      <p class="new-best" id="r-best" hidden>New best!</p>
+      <div class="r-grid">
+        <div><b id="r-perfect">0</b><small id="r-perfect-label">Perfect</small></div>
+        <div><b id="r-good">0</b><small>Good</small></div>
+        <div><b id="r-missed">0</b><small>Missed</small></div>
+        <div><b id="r-wrong">0</b><small>Wrong keys</small></div>
+        <div><b id="r-combo">0</b><small>Best streak</small></div>
+      </div>
+      <button class="btn primary" id="r-retry">Play again</button>
+      <button class="btn ghost" id="r-back">Back to library</button>
+    </div>
+  </div>
+
+  <!-- ============ SETTINGS ============ -->
+  <div id="settings" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true">
+      <button class="icon-btn sheet-close" data-close aria-label="Close">✕</button>
+      <h2>Settings</h2>
+      <div class="setting">
+        <div><b>MIDI keyboard</b><p class="muted small" id="midi-devices">Not connected</p></div>
+        <button class="btn small" id="btn-midi">Connect</button>
+      </div>
+      <label class="setting">
+        <div><b>Play sound for MIDI keyboard</b><p class="muted small">Turn off if your keyboard has its own speakers</p></div>
+        <input type="checkbox" id="opt-midi-sound" class="toggle" />
+      </label>
+      <label class="setting">
+        <div><b>Show note names</b><p class="muted small">Letters on the falling notes</p></div>
+        <input type="checkbox" id="opt-names" class="toggle" />
+      </label>
+      <label class="setting">
+        <div><b>Volume</b></div>
+        <input type="range" id="opt-volume" min="0" max="1" step="0.05" />
+      </label>
+      <div class="help muted small">
+        <p><b>Ways to play:</b> plug a MIDI/USB keyboard into your phone or computer (Chrome, Edge, Android), tap the on-screen keys, or use your computer keyboard: <kbd>A</kbd>–<kbd>;</kbd> are white keys, <kbd>W</kbd> <kbd>E</kbd> <kbd>T</kbd> <kbd>Y</kbd> <kbd>U</kbd> <kbd>O</kbd> <kbd>P</kbd> are black keys, and <kbd>Z</kbd>/<kbd>X</kbd> shift the octave. <kbd>Space</kbd> pauses.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="js/songs.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/midi-file.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

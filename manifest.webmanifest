@@ -1,0 +1,11 @@
+{
+  "name": "Keyfall",
+  "short_name": "Keyfall",
+  "description": "Learn piano with falling notes. Works with MIDI keyboards.",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0d1a",
+  "theme_color": "#0b0d1a",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
