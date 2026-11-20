@@ -2,10 +2,59 @@
 //
 // Notation, one string per voice:  "PITCH:BEATS" tokens separated by spaces.
 //   Pitch:  C4, F#3, Bb4 ...   Chord: C4+E4+G4:2   Rest: r:1
+//   Guitar chord shape: *G:2  *Em:4  (see CHORD_SHAPES in guitar.js; keeps exact string/fret)
 //   Beats are quarter notes (0.5 = eighth, 0.25 = sixteenth). "|" is ignored (bar line).
 // A hand may be a string or an array of strings (several voices played by that hand).
 
 const SONG_DEFS = [
+  // ---------- guitar ----------
+  {
+    id: 'g-open-strings',
+    title: 'Open Strings',
+    composer: 'Guitar warm-up',
+    difficulty: 'Beginner',
+    instrument: 'guitar',
+    bpm: 70,
+    rh: 'E2 A2 D3 G3 B3 E4:2 r:1 | E4 B3 G3 D3 A2 E2:2 r:1 | E2 E2 A2 A2 D3 D3 G3 G3 | B3 B3 E4 E4 E4:2',
+  },
+  {
+    id: 'g-first-chords',
+    title: 'First Chords: G, C, D',
+    composer: 'Guitar chords',
+    difficulty: 'Beginner',
+    instrument: 'guitar',
+    bpm: 72,
+    rh: '*G:2 *G:2 | *C:2 *C:2 | *G:2 *G:2 | *D:2 *D:2 | *G:2 *G:2 | *C:2 *C:2 | *D:2 *D:2 | *G:4',
+  },
+  {
+    id: 'g-four-chords',
+    title: 'Four-Chord Progression',
+    composer: 'Em – C – G – D',
+    difficulty: 'Beginner',
+    instrument: 'guitar',
+    bpm: 80,
+    rh: (() => {
+      const bar = (c) => `*${c}:1.5 *${c}:1.5 *${c}:1 |`;
+      return ['Em', 'C', 'G', 'D', 'Em', 'C', 'G', 'D'].map(bar).join(' ') + ' *Em:4';
+    })(),
+  },
+  {
+    id: 'g-minor-arpeggios',
+    title: 'Minor Arpeggio Study',
+    composer: 'Fingerpicking: Am C D F',
+    difficulty: 'Intermediate',
+    instrument: 'guitar',
+    bpm: 110,
+    rh: (() => {
+      const pat = {
+        Am: 'A2 A3 C4 E4 C4 A3', C: 'C3 G3 C4 E4 C4 G3', D: 'D3 A3 D4 F#4 D4 A3',
+        F: 'F3 A3 C4 E4 C4 A3', E: 'E2 G#3 B3 E4 B3 G#3',
+      };
+      const bar = (c) => pat[c].split(' ').map((n) => n + ':.5').join(' ') + ' |';
+      return ['Am', 'C', 'D', 'F', 'Am', 'C', 'E', 'E', 'Am', 'C', 'D', 'F', 'Am', 'E', 'Am'].map(bar).join(' ') + ' A2+E3+A3+C4+E4:3';
+    })(),
+  },
+  // ---------- piano ----------
   {
     id: 'c-major-scale',
     title: 'C Major Scale',
@@ -134,7 +183,11 @@ function parseVoice(str, hand, secPerBeat, out) {
     if (!tok || tok === '|') continue;
     const [pitch, durStr] = tok.split(':');
     const dur = durStr === undefined ? 1 : parseFloat(durStr);
-    if (pitch !== 'r') {
+    if (pitch[0] === '*') {
+      for (const c of chordNotes(pitch.slice(1))) {
+        out.push({ ...c, start: beat * secPerBeat, dur: dur * secPerBeat * 0.95, hand });
+      }
+    } else if (pitch !== 'r') {
       for (const p of pitch.split('+')) {
         out.push({
           midi: noteToMidi(p),

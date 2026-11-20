@@ -24,7 +24,7 @@
     },
   };
 
-  const settings = Object.assign({ midiSound: true, showNames: true, volume: 0.8, micEnabled: false, micSensitivity: 'normal' }, store.get('settings', {}));
+  const settings = Object.assign({ midiSound: true, showNames: true, volume: 0.8, micEnabled: false, micSensitivity: 'normal', instrument: 'piano' }, store.get('settings', {}));
   const saveSettings = () => store.set('settings', settings);
 
   const synth = new PianoSynth();
@@ -42,7 +42,9 @@
   let songs = [...BUILTIN_SONGS, ...loadImported()];
   const songById = (id) => songs.find((s) => s.id === id);
 
-  const bestKey = (id, mode) => `best.${id}.${mode}`;
+  const isGuitar = () => settings.instrument === 'guitar';
+  const bestKey = (id, mode) => (isGuitar() ? `best.guitar.${id}.${mode}` : `best.${id}.${mode}`);
+  const setupKey = (id) => (isGuitar() ? 'setup.guitar.' : 'setup.') + id;
   const getBest = (id, mode) => store.get(bestKey(id, mode), null);
 
   // ---------- library ----------
@@ -66,7 +68,7 @@
       <div class="cover" style="${coverStyle(song)}"><span>${initials(song)}</span></div>
       <div class="song-info">
         <b></b><small></small>
-        <div class="tags"><span class="tag ${song.difficulty.toLowerCase()}">${song.difficulty}</span>
+        <div class="tags">${song.instrument === 'guitar' ? '<span class="tag guitar">🎸 Guitar</span>' : ''}<span class="tag ${song.difficulty.toLowerCase()}">${song.difficulty}</span>
         <span class="tag">${mins}:${String(secs).padStart(2, '0')}</span>
         ${best >= 0 ? `<span class="tag best">★ ${best}%</span>` : ''}</div>
       </div>`;
@@ -85,6 +87,9 @@
         (filter === 'all' || s.difficulty === filter) &&
         (!q || s.title.toLowerCase().includes(q) || s.composer.toLowerCase().includes(q))
     );
+    // Songs written for the current instrument come first.
+    const rank = (s) => ((s.instrument === 'guitar') === isGuitar() ? 0 : 1);
+    shown.sort((a, b) => rank(a) - rank(b));
     shown.forEach((s) => list.appendChild(songCard(s)));
     if (!shown.length) list.innerHTML = '<p class="muted empty">No songs here yet.</p>';
 
@@ -137,16 +142,32 @@
     const song = songById(id);
     if (!song) return;
     current = song;
-    const saved = store.get('setup.' + id, null);
+    const saved = store.get(setupKey(id), null);
     if (saved) Object.assign(setup, JSON.parse(JSON.stringify(saved)));
-    else Object.assign(setup, { mode: 'learn', hands: { rh: 'you', lh: 'you' }, speed: song.difficulty === 'Intermediate' ? 0.7 : 1 });
-    if (!song.notes.some((n) => n.hand === 'lh')) setup.hands.lh = 'off';
-    if (!song.notes.some((n) => n.hand === 'rh')) setup.hands.rh = 'off';
+    else Object.assign(setup, {
+      mode: 'learn',
+      // On guitar, play the melody and leave the piano left hand out by default.
+      hands: { rh: 'you', lh: isGuitar() ? 'off' : 'you' },
+      speed: song.difficulty === 'Intermediate' ? 0.7 : 1,
+    });
+    const hasLh = song.notes.some((n) => n.hand === 'lh');
+    const hasRh = song.notes.some((n) => n.hand === 'rh');
+    if (!hasLh) setup.hands.lh = 'off';
+    if (!hasRh) setup.hands.rh = 'off';
+    $('.hand-row[data-hand=lh]').hidden = !hasLh;
+    $('.hand-row[data-hand=rh]').hidden = !hasRh;
+    const labels = !isGuitar()
+      ? ['Left hand', 'Right hand']
+      : song.instrument === 'guitar' ? ['Bass', 'Guitar'] : ['Bass part', 'Melody'];
+    $('.hand-row[data-hand=lh] .hand-label').textContent = labels[0];
+    $('.hand-row[data-hand=rh] .hand-label').textContent = labels[1];
 
     $('#detail-title').textContent = song.title;
     $('#detail-composer').textContent = song.composer;
     const lhCount = song.notes.filter((n) => n.hand === 'lh').length;
-    $('#detail-meta').textContent = `${song.difficulty} · ${song.notes.length - lhCount} right-hand notes · ${lhCount} left-hand notes`;
+    $('#detail-meta').textContent = isGuitar() || song.instrument === 'guitar'
+      ? `${song.difficulty} · ${song.notes.length} notes${song.instrument === 'guitar' ? '' : ' · melody arranged for guitar'}`
+      : `${song.difficulty} · ${song.notes.length - lhCount} right-hand notes · ${lhCount} left-hand notes`;
     $('#detail-cover').setAttribute('style', coverStyle(song));
     $('#detail-cover').innerHTML = `<span>${initials(song)}</span>`;
     $('#btn-delete-song').hidden = !song.imported;
@@ -167,7 +188,7 @@
     const fg = $('#ring-fg');
     fg.style.strokeDasharray = C;
     fg.style.strokeDashoffset = C * (1 - (best || 0) / 100);
-    store.set('setup.' + current.id, setup);
+    store.set(setupKey(current.id), setup);
   }
 
   $('#mode-switch').addEventListener('click', (e) => {
@@ -216,7 +237,7 @@
 
   $('#btn-start').onclick = () => {
     synth.ensure(); // unlock audio on a user gesture
-    if (settings.micEnabled && !mic.running) setMic(true);
+    if ((settings.micEnabled || isGuitar()) && !mic.running) setMic(true);
     startGame();
   };
 
@@ -226,6 +247,7 @@
     $('#results').hidden = true;
     $('#pause').hidden = true;
     showScreen('game');
+    synth.timbre = isGuitar() ? 'guitar' : 'piano';
     const recent = [current.id, ...store.get('recent', []).filter((id) => id !== current.id)].slice(0, 8);
     store.set('recent', recent);
 
@@ -234,6 +256,7 @@
       hands: { ...setup.hands },
       speed: setup.speed,
       showNames: settings.showNames,
+      instrument: settings.instrument,
       synth,
       callbacks: {
         onProgress: (p) => { $('#progress-fill').style.width = Math.min(100, p * 100) + '%'; },
@@ -243,7 +266,7 @@
     });
     game.inputLatency = mic.running ? 0.15 : 0;
     if (mic.running && (setup.hands.lh === 'auto' || setup.hands.rh === 'auto')) {
-      toast('Tip: use headphones so the mic only hears your piano, not the Auto hand.');
+      toast(`Tip: use headphones so the mic only hears your ${isGuitar() ? 'guitar' : 'piano'}, not the Auto part.`);
     }
     window.__game = game; // handy for debugging from the console
     $('#hud-mode').textContent = setup.mode === 'learn' ? 'Learn' : 'Play';
@@ -342,13 +365,13 @@
   // ---------- input: shared ----------
   const held = new Map(); // inputId -> midi
 
-  function press(inputId, midi, velocity, source, latency = 0) {
+  function press(inputId, midi, velocity, source, latency = 0, chordOk = true) {
     if (held.has(inputId)) release(inputId);
     held.set(inputId, midi);
     // The mic hears a real piano, so never add our own sound on top of it.
     const sound = source === 'midi' ? settings.midiSound : source !== 'mic';
     if (sound) synth.noteOn(midi, velocity, 'u' + inputId);
-    if (game && !game.paused && !game.finished) game.noteOn(midi, latency);
+    if (game && !game.paused && !game.finished) game.noteOn(midi, latency, chordOk);
   }
   function release(inputId) {
     const midi = held.get(inputId);
@@ -400,10 +423,10 @@
   // ---------- input: microphone ----------
   const micTimers = new Map();
   const mic = new MicListener({
-    onNotes: (notes, latency) => {
+    onNotes: (notes, latency, chordOk) => {
       for (const m of notes) {
         const id = 'mic' + m;
-        press(id, m, 0.8, 'mic', latency);
+        press(id, m, 0.8, 'mic', latency, chordOk);
         clearTimeout(micTimers.get(id));
         micTimers.set(id, setTimeout(() => release(id), 220));
       }
@@ -455,6 +478,74 @@
   };
   $('#opt-mic').onchange = (e) => setMic(e.target.checked);
   $('#opt-mic-sens').onchange = (e) => { settings.micSensitivity = mic.sensitivity = e.target.value; saveSettings(); };
+
+  // ---------- instrument ----------
+  function applyInstrument() {
+    $$('#inst-switch button').forEach((b) => b.classList.toggle('active', b.dataset.inst === settings.instrument));
+    $('#btn-tuner').hidden = !isGuitar();
+    $('#midi-chip').hidden = isGuitar();
+    document.body.classList.toggle('guitar', isGuitar());
+    renderLibrary();
+  }
+  $('#inst-switch').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b || b.dataset.inst === settings.instrument) return;
+    settings.instrument = b.dataset.inst;
+    saveSettings();
+    applyInstrument();
+    if (isGuitar() && !mic.running) toast('Guitar mode listens through the microphone. Tap 🎤 Mic to start, or just press Start on a song.');
+  });
+
+  // ---------- tuner ----------
+  let tunerTimer = null;
+  const freqHist = [];
+  $('#tuner-refs').innerHTML = GUITAR_TUNING.map((m, s) => `<button data-s="${s}">${STRING_NAMES[s]}</button>`).join('');
+  $('#tuner-refs').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const m = GUITAR_TUNING[+b.dataset.s];
+    const prev = synth.timbre;
+    synth.timbre = 'guitar';
+    synth.noteOn(m, 0.9, 'ref');
+    synth.timbre = prev;
+    setTimeout(() => synth.noteOff('ref', 0.6), 2000);
+  });
+
+  async function openTuner() {
+    $('#tuner').hidden = false;
+    if (!mic.running) await setMic(true);
+    if (!mic.running) { $('#tuner-string').textContent = 'The tuner needs the microphone.'; return; }
+    clearInterval(tunerTimer);
+    tunerTimer = setInterval(tunerTick, 70);
+  }
+  function tunerTick() {
+    if ($('#tuner').hidden) { clearInterval(tunerTimer); return; }
+    const buf = mic.readSamples();
+    const p = buf && detectPitch(buf, mic.ctx.sampleRate);
+    const needle = $('#tuner-needle');
+    if (!p || p.freq < 60 || p.freq > 1100) {
+      needle.classList.remove('live');
+      return;
+    }
+    freqHist.push(p.freq);
+    if (freqHist.length > 5) freqHist.shift();
+    const f = [...freqHist].sort((a, b) => a - b)[Math.floor(freqHist.length / 2)];
+    const exact = 69 + 12 * Math.log2(f / 440);
+    const midi = Math.round(exact);
+    const cents = Math.round((exact - midi) * 100);
+    const ok = Math.abs(cents) <= 5;
+    const note = $('#tuner-note');
+    note.textContent = midiToName(midi);
+    note.classList.toggle('ok', ok);
+    needle.classList.add('live');
+    needle.style.left = `${50 + Math.max(-50, Math.min(50, cents))}%`;
+    $('#tuner-cents').textContent = ok ? 'In tune ✓' : `${cents > 0 ? '+' : ''}${cents} cents · ${cents > 0 ? 'tune down' : 'tune up'}`;
+    let near = 0;
+    GUITAR_TUNING.forEach((m, s) => { if (Math.abs(exact - m) < Math.abs(exact - GUITAR_TUNING[near])) near = s; });
+    $('#tuner-string').textContent = `Closest string: ${STRING_NAMES[near]} (${midiToName(GUITAR_TUNING[near])})`;
+    $$('#tuner-refs button').forEach((b) => b.classList.toggle('near', +b.dataset.s === near));
+  }
+  $('#btn-tuner').onclick = openTuner;
 
   // ---------- input: computer keyboard ----------
   const KEYMAP = {
@@ -527,5 +618,5 @@
     toastTimer = setTimeout(() => (t.hidden = true), 2600);
   }
 
-  renderLibrary();
+  applyInstrument();
 })();

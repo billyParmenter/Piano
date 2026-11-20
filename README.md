@@ -12,6 +12,11 @@ A falling-notes piano trainer that runs in the browser. Connect a real MIDI keyb
 - **Results screen** with a star rating. Your best score is saved for each song and mode.
 - **Import any `.mid` file**. Two-track files are split into right and left hand. Other files are split at middle C.
 - **🎤 Microphone mode: no cable needed.** Tap **🎤 Mic off** at the top to switch it on, and the phone listens to your real piano (acoustic or digital) to work out which keys you play. Chords work too. Settings has a live level meter, a "Heard: …" readout for testing, and a sensitivity setting. It also works on iPhone and iPad.
+- **🎸 Guitar mode.** Switch between 🎹 Piano and 🎸 Guitar at the top of the library.
+  - Notes fall down six string lanes, labelled with the fret to play, onto a chord-diagram fretboard that shows where your fingers go.
+  - The app listens through the microphone, including strummed chords. Once most strings of a chord ring true it counts the whole chord, but a different chord (say C when G is expected) is rejected.
+  - Guitar songs: Open Strings, First Chords (G C D), a Four-Chord Progression (Em C G D) and a Minor Arpeggio Study. Every piano song can be played too: its melody is moved into guitar range and fingered automatically in a comfortable hand position.
+  - A built-in **🎵 Tuner** shows the note, cents sharp/flat and the closest string, and has reference tones for E A D G B E.
 - **More ways to play**:
   - A USB or Bluetooth **MIDI keyboard** (Web MIDI: Chrome, Edge, Opera on desktop and Android).
   - **Touch or mouse** on the on-screen keyboard.
@@ -42,7 +47,7 @@ Add an entry to `SONG_DEFS` in `js/songs.js`:
 ```js
 {
   id: 'my-song', title: 'My Song', composer: 'Me', difficulty: 'Beginner', bpm: 90,
-  rh: 'C4 E4 G4:2 | C4+E4+G4:4',   // PITCH:BEATS, chords with +, rests with r:BEATS
+  rh: 'C4 E4 G4:2 | C4+E4+G4:4',   // PITCH:BEATS, chords with +, rests with r:BEATS, guitar chords as *G:2
   lh: 'C3:4 | C3:4',
 }
 ```
@@ -56,6 +61,7 @@ Add an entry to `SONG_DEFS` in `js/songs.js`:
 | `js/songs.js` | Song notation parser and built-in songs |
 | `js/audio.js` | Web Audio piano synth |
 | `js/midi-file.js` | `.mid` file parser |
-| `js/mic.js` | Microphone note detection (onset detection + harmonic pitch analysis) |
+| `js/mic.js` | Microphone note detection (onset detection + harmonic pitch analysis, chord matching) |
+| `js/guitar.js` | Guitar tuning, chord shapes, automatic fingering (tab), tuner pitch detection |
 | `js/game.js` | Falling-notes engine: timing, scoring, canvas rendering |
 | `js/app.js` | UI, input (MIDI, touch, keyboard), storage |

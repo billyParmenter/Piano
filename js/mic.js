@@ -102,6 +102,37 @@ function detectNotes(mag, pre, binHz, expected, ignored, k) {
     if (s > maxSal) maxSal = s;
     if (s > bestSal && plausibleNote(spec, m, floor, k, empty)) { best = m; bestSal = s; }
   }
+  // Chords (e.g. a strummed guitar chord): octave doublings make the per-note overtone checks
+  // too strict, so judge the chord as a whole. A string counts when its fundamental grew (or,
+  // for bass strings that phone mics barely hear, its 2nd and 3rd partials both grew).
+  // To reject a *different* chord that shares notes, any strong new pitch that is neither in
+  // the chord nor an overtone of it counts against the match.
+  if (expected.size >= 3) {
+    const need = floor * k * 0.6;
+    const exp = [...expected].filter((m) => !ignored.has(m));
+    const present = exp.filter((m) => {
+      const f = midiFreq(m);
+      if (spec.partial(f, 1) >= need) return true;
+      return f < 200 && spec.partial(f, 2) >= need && spec.partial(f, 3) >= need;
+    });
+    const explains = (c) => exp.some((m) => {
+      const ratio = midiFreq(c) / midiFreq(m);
+      const h = Math.round(ratio);
+      return h >= 1 && h <= 8 && Math.abs(1200 * Math.log2(ratio / h)) < 40;
+    });
+    let explained = 0, unexplained = 0;
+    for (let c = MIC_MIN_MIDI; c <= MIC_MAX_MIDI; c++) {
+      if (ignored.has(c)) continue;
+      const e = spec.partial(midiFreq(c), 1);
+      if (e < need) continue;
+      if (explains(c)) explained += e; else unexplained += e;
+    }
+    if (present.length / exp.length >= 0.5 && unexplained <= 0.15 * explained) {
+      present.chord = true; // tells the game it may credit the whole chord
+      return present;
+    }
+  }
+
   const hits = [];
   for (const m of expected) {
     if (ignored.has(m)) continue;
@@ -162,6 +193,14 @@ class MicListener {
     this.timer = setInterval(() => this.tick(), 12);
   }
 
+  // Latest ~170 ms of raw samples (used by the tuner).
+  readSamples() {
+    if (!this.running) return null;
+    if (!this.samples) this.samples = new Float32Array(this.slow.fftSize);
+    this.slow.getFloatTimeDomainData(this.samples);
+    return this.samples;
+  }
+
   stop() {
     this.running = false;
     clearInterval(this.timer);
@@ -211,10 +250,11 @@ class MicListener {
     if (!this.pending && loudEnough && flux > Math.max(1.2, mean * 1.9) && now - this.lastOnset > 70) {
       this.lastOnset = now;
       this.preOnset.set(before);
-      this.pending = { at: now, k };
+      // Give a strummed chord time to finish (all strings sounding) before analysing it.
+      this.pending = { at: now, k, delay: this.getExpected().size >= 3 ? 150 : 70 };
     }
 
-    if (this.pending && now - this.pending.at >= 70) {
+    if (this.pending && now - this.pending.at >= this.pending.delay) {
       const { at, k: kk } = this.pending;
       this.pending = null;
       this.slow.getFloatFrequencyData(this.slowDb);
@@ -226,7 +266,7 @@ class MicListener {
         pre[i] = Math.pow(10, this.preOnset[i] / 20);
       }
       const notes = detectNotes(cur, pre, this.ctx.sampleRate / this.slow.fftSize, this.getExpected(), this.getIgnored(), kk);
-      if (notes.length) this.onNotes(notes, (performance.now() - at) / 1000 + 0.04);
+      if (notes.length) this.onNotes(notes, (performance.now() - at) / 1000 + 0.04, !!notes.chord);
     }
   }
 }

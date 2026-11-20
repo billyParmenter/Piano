@@ -4,6 +4,7 @@ class PianoSynth {
     this.ctx = null;
     this.voices = new Map();
     this.volume = 0.8;
+    this.timbre = 'piano'; // or 'guitar'
   }
 
   ensure() {
@@ -33,24 +34,30 @@ class PianoSynth {
     const now = ctx.currentTime;
     const freq = 440 * Math.pow(2, (midi - 69) / 12);
     const vel = Math.max(0.1, Math.min(1, velocity));
-    const ring = 0.8 + Math.max(0, 96 - midi) / 28; // low notes ring longer
+    const guitar = this.timbre === 'guitar';
+    const ring = guitar ? 0.5 + Math.max(0, 90 - midi) / 40 : 0.8 + Math.max(0, 96 - midi) / 28; // low notes ring longer
 
     const out = ctx.createGain();
     const peak = 0.22 * vel;
     out.gain.setValueAtTime(0, now);
     out.gain.linearRampToValueAtTime(peak, now + 0.004);
-    out.gain.setTargetAtTime(peak * 0.4, now + 0.004, 0.12);
+    out.gain.setTargetAtTime(peak * (guitar ? 0.3 : 0.4), now + 0.004, guitar ? 0.06 : 0.12);
     out.gain.setTargetAtTime(0, now + 0.3, ring / 2.5);
 
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
     filter.Q.value = 0.4;
     filter.frequency.setValueAtTime(Math.min(15000, freq * 6 + 2500 * vel), now);
-    filter.frequency.setTargetAtTime(Math.max(freq * 2, 500), now, 0.6);
+    filter.frequency.setTargetAtTime(Math.max(freq * 2, 500), now, guitar ? 0.25 : 0.6);
     filter.connect(out);
     out.connect(this.master);
 
-    const partials = [
+    const partials = guitar ? [
+      [1, 'sawtooth', 0.45, 0],
+      [1, 'triangle', 0.7, 3],
+      [2, 'sine', 0.35, -2],
+      [3, 'sine', 0.2, 0],
+    ] : [
       [1, 'triangle', 1, 0],
       [1, 'sine', 0.5, 4],
       [2, 'sine', 0.25, -3],

@@ -19,11 +19,17 @@
         <span>Keyfall</span>
       </div>
       <div class="header-actions">
+        <button id="btn-tuner" class="chip" hidden title="Guitar tuner">🎵 Tuner</button>
         <button id="mic-chip" class="chip" title="Listen to your piano with the microphone">🎤 Mic off</button>
         <span id="midi-chip" class="chip" title="MIDI keyboard status">MIDI: —</span>
         <button id="btn-settings" class="icon-btn" aria-label="Settings">⚙</button>
       </div>
     </header>
+
+    <div class="inst-switch" id="inst-switch" role="tablist" aria-label="Instrument">
+      <button data-inst="piano">🎹 Piano</button>
+      <button data-inst="guitar">🎸 Guitar</button>
+    </div>
 
     <div class="lib-tools">
       <input id="search" type="search" placeholder="Search songs or composers" autocomplete="off" />
@@ -77,13 +83,13 @@
 
         <div class="hands">
           <div class="hand-row" data-hand="lh">
-            <span class="hand-name"><i class="dot lh"></i>Left hand</span>
+            <span class="hand-name"><i class="dot lh"></i><span class="hand-label">Left hand</span></span>
             <div class="seg">
               <button data-v="you">Me</button><button data-v="auto">Auto</button><button data-v="off">Off</button>
             </div>
           </div>
           <div class="hand-row" data-hand="rh">
-            <span class="hand-name"><i class="dot rh"></i>Right hand</span>
+            <span class="hand-name"><i class="dot rh"></i><span class="hand-label">Right hand</span></span>
             <div class="seg">
               <button data-v="you">Me</button><button data-v="auto">Auto</button><button data-v="off">Off</button>
             </div>
@@ -203,8 +209,23 @@
     </div>
   </div>
 
+  <!-- ============ TUNER ============ -->
+  <div id="tuner" class="sheet-backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true">
+      <button class="icon-btn sheet-close" data-close aria-label="Close">✕</button>
+      <h2>Tuner</h2>
+      <div class="tuner-note" id="tuner-note">—</div>
+      <p class="muted center" id="tuner-string">Pluck one string</p>
+      <div class="tuner-scale"><span>♭</span><div class="tuner-track"><div class="tuner-center"></div><div class="tuner-needle" id="tuner-needle"></div></div><span>♯</span></div>
+      <p class="tuner-cents" id="tuner-cents">&nbsp;</p>
+      <div class="tuner-refs" id="tuner-refs"></div>
+      <p class="muted small center">Standard tuning, low to high: E A D G B E. Tap a string to hear its reference note.</p>
+    </div>
+  </div>
+
   <div id="toast" class="toast" hidden></div>
 
+  <script src="js/guitar.js"></script>
   <script src="js/songs.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/midi-file.js"></script>
